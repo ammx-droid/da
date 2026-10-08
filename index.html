@@ -1,0 +1,2873 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Agenda</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f5f2;
+        --surface: rgba(255, 255, 255, 0.9);
+        --surface-strong: #ffffff;
+        --line: rgba(15, 23, 42, 0.06);
+        --line-strong: rgba(15, 23, 42, 0.1);
+        --text: #101828;
+        --muted: #667085;
+        --highlight: rgba(16, 24, 40, 0.025);
+        --highlight-ring: rgba(16, 24, 40, 0.055);
+        --shadow-lg: 0 18px 44px rgba(15, 23, 42, 0.045);
+        --radius-xl: 24px;
+        --radius-lg: 16px;
+        --radius-md: 12px;
+        --transition: 160ms ease;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family:
+          "SF Pro Display",
+          "SF Pro Text",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        color: var(--text);
+        background: linear-gradient(180deg, #fafaf8 0%, var(--bg) 100%);
+      }
+
+      .page {
+        width: min(1280px, calc(100% - 28px));
+        margin: 0 auto;
+        padding: 28px 0 40px;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(520px, 1.1fr);
+        align-items: start;
+        gap: 20px;
+      }
+
+      .shell {
+        border: 1px solid rgba(255, 255, 255, 0.75);
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+        box-shadow: var(--shadow-lg);
+        backdrop-filter: blur(14px);
+      }
+
+      .todo-panel {
+        min-height: calc(100vh - 56px);
+        padding: 22px;
+      }
+
+      .todo-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      .todo-title {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 630;
+        letter-spacing: -0.035em;
+      }
+
+      .todo-count {
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+
+      .todo-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 8px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .todo-form:not(.is-open) {
+        grid-template-columns: auto;
+        justify-content: start;
+      }
+
+      .todo-fields {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .todo-fields[hidden] {
+        display: none;
+      }
+
+      .todo-input,
+      .todo-detail-input {
+        min-width: 0;
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: var(--surface-strong);
+        color: var(--text);
+        padding: 10px 12px;
+        font: inherit;
+        font-size: 0.88rem;
+      }
+
+      .todo-detail-input {
+        min-height: 38px;
+        font-size: 0.78rem;
+        line-height: 1.4;
+        resize: none;
+      }
+
+      .todo-input::placeholder,
+      .todo-detail-input::placeholder {
+        color: #98a2b3;
+      }
+
+      .todo-input:focus,
+      .todo-detail-input:focus {
+        outline: none;
+        border-color: var(--line-strong);
+        box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.05);
+      }
+
+      .todo-add {
+        flex-shrink: 0;
+        width: 38px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: var(--text);
+        color: #ffffff;
+        font: inherit;
+        font-size: 1.1rem;
+        cursor: pointer;
+      }
+
+      .todo-list {
+        display: grid;
+        gap: 2px;
+        margin: 12px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .completed-todos {
+        margin-top: 10px;
+        overflow: hidden;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        transition:
+          border-color var(--transition),
+          background-color var(--transition);
+      }
+
+      .completed-todos-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 36px;
+        padding: 0 10px;
+        color: #98a2b3;
+        font-size: 0.7rem;
+        font-weight: 600;
+      }
+
+      .completed-todos-label::after {
+        content: "Hover to reveal";
+        font-size: 0.62rem;
+        font-weight: 500;
+      }
+
+      .completed-todo-list {
+        display: grid;
+        gap: 2px;
+        max-height: 0;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        opacity: 0;
+        visibility: hidden;
+        list-style: none;
+        transition:
+          max-height 240ms ease,
+          opacity var(--transition),
+          visibility var(--transition);
+      }
+
+      .completed-todos:hover,
+      .completed-todos:focus,
+      .completed-todos:focus-within {
+        border-color: var(--line);
+        background: rgba(255, 255, 255, 0.28);
+        outline: none;
+      }
+
+      .completed-todos:hover .completed-todo-list,
+      .completed-todos:focus .completed-todo-list,
+      .completed-todos:focus-within .completed-todo-list {
+        max-height: 1200px;
+        padding: 2px 8px 8px;
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .completed-todos:hover .completed-todos-label::after,
+      .completed-todos:focus .completed-todos-label::after,
+      .completed-todos:focus-within .completed-todos-label::after {
+        content: "Completed tasks";
+      }
+
+      .todo-item {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
+        grid-template-areas: "check copy priority remove";
+        align-items: start;
+        gap: 8px;
+        padding: 9px 2px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .todo-check {
+        grid-area: check;
+        width: 16px;
+        height: 16px;
+        margin: 3px 0 0;
+        accent-color: var(--text);
+        cursor: pointer;
+      }
+
+      .todo-copy {
+        grid-area: copy;
+        display: grid;
+        gap: 0;
+        min-width: 0;
+      }
+
+      .todo-title-input,
+      .todo-detail {
+        min-width: 0;
+        width: 100%;
+        border: 0;
+        background: transparent;
+        padding: 0;
+        font-family: inherit;
+        resize: none;
+        overflow-y: auto;
+        field-sizing: content;
+      }
+
+      .todo-title-input {
+        min-height: 1.4em;
+        max-height: 4.2em;
+        color: #344054;
+        font-size: 0.82rem;
+        font-weight: 550;
+        letter-spacing: -0.005em;
+        line-height: 1.3;
+      }
+
+      .todo-detail {
+        min-height: 1.35em;
+        max-height: 5.4em;
+        color: var(--muted);
+        font-size: 0.7rem;
+        letter-spacing: 0.005em;
+        line-height: 1.25;
+      }
+
+      .todo-detail-toggle {
+        justify-self: start;
+        border: 0;
+        background: transparent;
+        color: #98a2b3;
+        padding: 1px 0;
+        font: inherit;
+        font-size: 0.7rem;
+        cursor: pointer;
+      }
+
+      .todo-detail-toggle:hover,
+      .todo-detail-toggle:focus-visible {
+        color: var(--muted);
+        outline: none;
+      }
+
+      @media (hover: hover) {
+        .todo-detail-toggle {
+          display: none;
+        }
+
+        .todo-item:hover .todo-detail-toggle,
+        .todo-item:focus-within .todo-detail-toggle {
+          display: block;
+        }
+      }
+
+      .todo-title-input:focus,
+      .todo-detail:focus {
+        outline: none;
+        color: var(--text);
+      }
+
+      .todo-item.completed .todo-title-input,
+      .todo-item.completed .todo-detail {
+        color: #98a2b3;
+        text-decoration: line-through;
+      }
+
+      .todo-priority {
+        grid-area: priority;
+        align-self: start;
+        max-width: 66px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--muted);
+        padding: 5px 7px;
+        font: inherit;
+        font-size: 0.64rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .todo-priority:focus {
+        outline: none;
+        border-color: var(--line-strong);
+        box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.05);
+      }
+
+      .todo-priority.priority-high {
+        color: #9f3a38;
+        background: #fff5f4;
+      }
+
+      .todo-priority.priority-medium {
+        color: #8a6116;
+        background: #fff9e9;
+      }
+
+      .todo-priority.priority-low {
+        color: #40634b;
+        background: #f2f8f3;
+      }
+
+      .todo-item.completed .todo-priority {
+        opacity: 0.55;
+      }
+
+      .todo-remove {
+        grid-area: remove;
+        border: 0;
+        background: transparent;
+        color: #98a2b3;
+        padding: 3px 4px;
+        font: inherit;
+        font-size: 1rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .todo-remove:hover,
+      .todo-remove:focus-visible {
+        color: var(--text);
+        outline: none;
+      }
+
+      .todo-empty {
+        margin: 20px 0 4px;
+        color: #98a2b3;
+        font-size: 0.82rem;
+        text-align: center;
+      }
+
+      .habit-section {
+        margin-top: 28px;
+        padding-top: 22px;
+        border-top: 1px solid var(--line);
+      }
+
+      .habit-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .habit-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 630;
+        letter-spacing: -0.025em;
+      }
+
+      .habit-month {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 0.74rem;
+      }
+
+      .habit-count {
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 600;
+      }
+
+      .habit-actions,
+      .habit-navigation {
+        display: flex;
+        align-items: center;
+      }
+
+      .habit-actions {
+        gap: 9px;
+      }
+
+      .habit-navigation {
+        gap: 3px;
+      }
+
+      .habit-navigation button {
+        display: grid;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.72);
+        color: var(--muted);
+        font: inherit;
+        font-size: 1rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .habit-navigation button:hover,
+      .habit-navigation button:focus-visible {
+        border-color: var(--line-strong);
+        color: var(--text);
+        outline: none;
+      }
+
+      .deadline-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 118px auto;
+        gap: 6px;
+        margin: -4px 0 14px;
+      }
+
+      .deadline-input,
+      .deadline-date {
+        min-width: 0;
+        height: 32px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.72);
+        color: var(--text);
+        font: inherit;
+        font-size: 0.72rem;
+      }
+
+      .deadline-input {
+        padding: 0 9px;
+      }
+
+      .deadline-date {
+        padding: 0 5px;
+      }
+
+      .deadline-add {
+        height: 32px;
+        padding: 0 9px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: #ffffff;
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.72rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .deadline-add:hover,
+      .deadline-add:focus-visible {
+        border-color: var(--line-strong);
+        color: var(--text);
+        outline: none;
+      }
+
+      .habit-weekdays,
+      .habit-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 30px);
+        justify-content: space-between;
+        gap: 5px;
+      }
+
+      .habit-weekdays {
+        margin-bottom: 6px;
+      }
+
+      .habit-weekday {
+        color: #98a2b3;
+        font-size: 0.62rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      .habit-day,
+      .habit-blank {
+        width: 30px;
+        height: 30px;
+      }
+
+      .habit-day {
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.68);
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.7rem;
+        cursor: pointer;
+        transition:
+          border-color var(--transition),
+          background-color var(--transition),
+          color var(--transition);
+      }
+
+      .habit-day:hover,
+      .habit-day:focus-visible {
+        border-color: var(--line-strong);
+        color: var(--text);
+        outline: none;
+      }
+
+      .habit-day.today {
+        border-color: var(--text);
+        font-weight: 700;
+        box-shadow: 0 0 0 2px rgba(16, 24, 40, 0.14);
+      }
+
+      .habit-day.completed {
+        border-color: var(--text);
+        background: var(--text);
+        color: #ffffff;
+      }
+
+      .habit-day.has-deadline {
+        position: relative;
+        border-color: #e59078;
+        box-shadow: 0 0 0 2px rgba(229, 144, 120, 0.36);
+      }
+
+      .habit-day.has-deadline::before {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        width: 5px;
+        height: 5px;
+        border: 1px solid #ffffff;
+        border-radius: 50%;
+        background: #e59078;
+        content: "";
+      }
+
+      .habit-day.has-deadline.completed {
+        border-color: #f2ad98;
+        box-shadow: 0 0 0 2px #f2ad98;
+      }
+
+      .habit-day.has-deadline::after {
+        position: absolute;
+        z-index: 3;
+        left: 50%;
+        bottom: calc(100% + 7px);
+        width: max-content;
+        max-width: 190px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: var(--text);
+        color: #ffffff;
+        content: attr(data-deadline);
+        font-size: 0.67rem;
+        line-height: 1.3;
+        opacity: 0;
+        pointer-events: none;
+        text-align: left;
+        transform: translate(-50%, 3px);
+        transition: opacity var(--transition), transform var(--transition);
+        white-space: normal;
+      }
+
+      .habit-day.has-deadline:hover::after,
+      .habit-day.has-deadline:focus-visible::after {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      .budget-section {
+        margin-top: 28px;
+        padding-top: 22px;
+        border-top: 1px solid var(--line);
+      }
+
+      .budget-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .budget-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 630;
+        letter-spacing: -0.025em;
+      }
+
+      .budget-week {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 0.74rem;
+      }
+
+      .budget-summary {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: rgba(255, 255, 255, 0.55);
+      }
+
+      .budget-total-row {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 0.74rem;
+      }
+
+      .budget-rolling-total {
+        color: var(--text);
+        font-size: 1.45rem;
+        font-weight: 650;
+        letter-spacing: -0.04em;
+      }
+
+      .budget-goal-wrap {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+
+      .budget-goal,
+      .budget-amount {
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface-strong);
+        color: var(--text);
+        padding: 8px 9px;
+        font: inherit;
+        font-size: 0.78rem;
+      }
+
+      .budget-goal {
+        width: 86px;
+        padding: 5px 7px;
+      }
+
+      .budget-goal:focus,
+      .budget-amount:focus {
+        outline: none;
+        border-color: var(--line-strong);
+        box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.05);
+      }
+
+      .budget-progress {
+        height: 4px;
+        margin-top: 11px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.06);
+      }
+
+      .budget-progress-fill {
+        height: 100%;
+        width: 0;
+        border-radius: inherit;
+        background: var(--text);
+        transition: width var(--transition);
+      }
+
+      .budget-progress-fill.over {
+        background: #9f3a38;
+      }
+
+      .budget-amount-form {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .budget-amount {
+        flex: 1;
+        width: 100%;
+      }
+
+      .budget-add {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--text);
+        color: #ffffff;
+        padding: 8px 12px;
+        font: inherit;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .budget-undo {
+        display: block;
+        margin: 9px 0 0 auto;
+        border: 0;
+        background: transparent;
+        color: #98a2b3;
+        padding: 2px 0;
+        font: inherit;
+        font-size: 0.7rem;
+        cursor: pointer;
+      }
+
+      .budget-undo:hover,
+      .budget-undo:focus-visible {
+        color: var(--text);
+        outline: none;
+      }
+
+      .header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 24px 24px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .title-group {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+      }
+
+      .allocation-section {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-bottom: 22px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .date-ring {
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+        width: 112px;
+        height: 112px;
+        padding: 6px;
+        border-radius: 50%;
+        background: conic-gradient(var(--line-strong) 0deg 360deg);
+        transition: background var(--transition);
+      }
+
+      .allocation-center {
+        display: grid;
+        place-items: center;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        border-radius: 50%;
+        background: var(--surface-strong);
+        color: var(--text);
+        font-size: 1.15rem;
+        font-weight: 650;
+        letter-spacing: -0.035em;
+      }
+
+      .allocation-copy {
+        min-width: 0;
+      }
+
+      .allocation-title {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 630;
+        letter-spacing: -0.02em;
+      }
+
+      .date-number {
+        margin: 0;
+        font-size: clamp(3rem, 7vw, 4.6rem);
+        line-height: 0.9;
+        letter-spacing: -0.08em;
+        font-weight: 630;
+      }
+
+      .date-stack {
+        display: grid;
+        gap: 4px;
+        padding-top: 4px;
+      }
+
+      .date-weekday,
+      .date-month {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .allocation-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px 9px;
+        margin-top: 8px;
+        max-width: 300px;
+      }
+
+      .allocation-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--muted);
+        font-size: 0.65rem;
+      }
+
+      .allocation-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+      }
+
+      .allocation-empty {
+        color: #98a2b3;
+        font-size: 0.65rem;
+      }
+
+      .clear-button {
+        flex-shrink: 0;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--text);
+        padding: 9px 14px;
+        font: inherit;
+        font-size: 0.84rem;
+        font-weight: 560;
+        cursor: pointer;
+        transition:
+          transform var(--transition),
+          border-color var(--transition),
+          background-color var(--transition),
+          color var(--transition);
+      }
+
+      .clear-button:hover {
+        border-color: var(--line-strong);
+        background: rgba(255, 255, 255, 0.95);
+      }
+
+      .clear-button:focus-visible {
+        outline: none;
+        border-color: var(--line-strong);
+        box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.06);
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .date-button {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--muted);
+        min-width: 34px;
+        height: 34px;
+        padding: 0 10px;
+        font: inherit;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .date-button:hover,
+      .date-button:focus-visible {
+        border-color: var(--line-strong);
+        background: #ffffff;
+        color: var(--text);
+        outline: none;
+      }
+
+      .date-button:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+
+      .schedule {
+        padding: 10px 12px 12px;
+      }
+
+      .schedule-list {
+        display: grid;
+        gap: 4px;
+      }
+
+      .slot {
+        display: grid;
+        grid-template-columns: 132px minmax(0, 1fr) 82px;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 6px;
+        border-radius: 14px;
+        transition:
+          background-color var(--transition),
+          box-shadow var(--transition);
+      }
+
+      .slot:hover {
+        background: rgba(255, 255, 255, 0.42);
+      }
+
+      .slot.current {
+        background: var(--highlight);
+        box-shadow: inset 0 0 0 1px var(--highlight-ring);
+      }
+
+      .time {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 0 0 6px;
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+      }
+
+      .slot-shift {
+        display: grid;
+        width: 20px;
+        height: 20px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid var(--line);
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.75);
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.82rem;
+        line-height: 1;
+        cursor: pointer;
+        opacity: 0;
+        transform: scale(0.9);
+        transition:
+          opacity var(--transition),
+          transform var(--transition),
+          background-color var(--transition);
+      }
+
+      .slot:hover .slot-shift,
+      .slot:focus-within .slot-shift,
+      .slot-shift:focus-visible {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      .slot-shift:hover,
+      .slot-shift:focus-visible {
+        outline: none;
+        background: #ffffff;
+        color: var(--text);
+      }
+
+      .note {
+        width: 100%;
+        min-height: 42px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: var(--surface-strong);
+        color: var(--muted);
+        font-family: "Aptos Display", "Aptos", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 0.92rem;
+        font-weight: 400;
+        letter-spacing: 0.01em;
+        font-style: normal;
+        line-height: 1.4;
+        resize: none;
+        transition:
+          border-color var(--transition),
+          box-shadow var(--transition),
+          background-color var(--transition);
+      }
+
+      .slot-copy {
+        display: grid;
+        min-width: 0;
+        gap: 3px;
+      }
+
+      .note-detail {
+        min-height: 30px;
+        padding-block: 5px;
+        border-color: transparent;
+        background: transparent;
+        font-size: 0.76rem;
+      }
+
+      .note-detail[hidden] {
+        display: none;
+      }
+
+      .note-detail-toggle {
+        width: max-content;
+        padding: 1px 7px;
+        border: 0;
+        background: transparent;
+        color: #98a2b3;
+        font: inherit;
+        font-size: 0.68rem;
+        cursor: pointer;
+      }
+
+      .note-detail-toggle:hover,
+      .note-detail-toggle:focus-visible {
+        color: var(--muted);
+        outline: none;
+      }
+
+      .note::placeholder {
+        color: #98a2b3;
+      }
+
+      .note:hover {
+        border-color: var(--line-strong);
+      }
+
+      .note:focus {
+        outline: none;
+        border-color: var(--line-strong);
+        background: #ffffff;
+        color: var(--text);
+        box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.06);
+      }
+
+      .slot-tag {
+        width: 82px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        color: var(--muted);
+        padding: 6px 7px;
+        font: inherit;
+        font-size: 0.67rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .slot-tag:focus {
+        outline: none;
+        border-color: var(--line-strong);
+        box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.05);
+      }
+
+      .slot-tag.tag-work {
+        color: #587895;
+        background: #eef8ff;
+      }
+
+      .slot-tag.tag-coffee {
+        color: #6f689a;
+        background: #f3f0ff;
+        padding-inline: 4px;
+        font-size: 0.58rem;
+      }
+
+      .slot-tag.tag-health {
+        color: #527a60;
+        background: #effaf3;
+      }
+
+      .slot-tag.tag-selfcare {
+        color: #c77f94;
+        background: #fff3f6;
+      }
+
+      .slot-tag.tag-friends {
+        color: #a46f58;
+        background: #fff0e7;
+      }
+
+      .slot-tag.tag-admin {
+        color: #88703c;
+        background: #fff8df;
+      }
+
+      .late-hours {
+        overflow: hidden;
+        border: 1px solid transparent;
+        border-radius: 14px;
+        transition:
+          border-color var(--transition),
+          background-color var(--transition);
+      }
+
+      .late-hours-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 40px;
+        padding: 0 12px;
+        color: #98a2b3;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        cursor: default;
+      }
+
+      .late-hours-label::after {
+        content: "Hover to reveal";
+        font-size: 0.64rem;
+        font-weight: 500;
+        letter-spacing: 0;
+      }
+
+      .late-hours-content {
+        display: grid;
+        gap: 4px;
+        max-height: 0;
+        opacity: 0;
+        visibility: hidden;
+        transition:
+          max-height 280ms ease,
+          opacity var(--transition),
+          visibility var(--transition);
+      }
+
+      .late-hours:hover,
+      .late-hours:focus,
+      .late-hours:focus-within,
+      .late-hours.is-open {
+        border-color: var(--line);
+        background: rgba(255, 255, 255, 0.28);
+        outline: none;
+      }
+
+      .late-hours:hover .late-hours-content,
+      .late-hours:focus .late-hours-content,
+      .late-hours:focus-within .late-hours-content,
+      .late-hours.is-open .late-hours-content {
+        max-height: 1400px;
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .late-hours:hover .late-hours-label::after,
+      .late-hours:focus .late-hours-label::after,
+      .late-hours:focus-within .late-hours-label::after,
+      .late-hours.is-open .late-hours-label::after {
+        content: "After-hours schedule";
+      }
+
+      .footer {
+        padding: 4px 24px 20px;
+        color: var(--muted);
+        font-size: 0.76rem;
+      }
+
+      @media (max-width: 980px) {
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .todo-panel {
+          grid-row: 1;
+          min-height: auto;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .page {
+          width: min(100% - 16px, 980px);
+          padding: 16px 0 22px;
+        }
+
+        .shell {
+          border-radius: 20px;
+        }
+
+        .header {
+          flex-direction: column;
+          align-items: stretch;
+          padding: 18px 16px 12px;
+        }
+
+        .title-group {
+          gap: 12px;
+        }
+
+        .date-ring {
+          width: 96px;
+          height: 96px;
+        }
+
+        .date-number {
+          font-size: clamp(2.75rem, 14vw, 4rem);
+        }
+
+        .date-stack {
+          gap: 2px;
+          padding-top: 2px;
+        }
+
+        .clear-button {
+          align-self: flex-start;
+        }
+
+        .header-actions {
+          flex-wrap: wrap;
+        }
+
+        .schedule {
+          padding: 8px;
+        }
+
+        .slot {
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 6px;
+          padding: 8px 6px;
+        }
+
+        .time {
+          grid-column: 1;
+          padding: 0 4px;
+          font-size: 0.76rem;
+        }
+
+        .note {
+          grid-column: 1 / -1;
+          min-height: 48px;
+          font-size: 0.92rem;
+        }
+
+        .slot-copy {
+          grid-column: 1 / -1;
+        }
+
+        .slot-tag {
+          grid-column: 2;
+          grid-row: 1;
+        }
+
+        .slot-shift {
+          opacity: 0.65;
+          transform: none;
+        }
+
+        .footer {
+          padding: 0 16px 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="workspace">
+        <section class="shell" aria-label="Daily agenda">
+          <header class="header">
+            <div class="title-group">
+              <p class="date-number" id="dateNumber" aria-live="polite"></p>
+              <div class="date-stack" aria-live="polite">
+                <p class="date-weekday" id="dateWeekday"></p>
+                <p class="date-month" id="dateMonth"></p>
+              </div>
+            </div>
+            <div class="header-actions" aria-label="Date navigation">
+              <button class="date-button" id="previousDayButton" type="button" aria-label="Previous day">←</button>
+              <button class="date-button" id="todayButton" type="button">Today</button>
+              <button class="date-button" id="nextDayButton" type="button" aria-label="Next day">→</button>
+              <button class="clear-button" id="clearDayButton" type="button">Clear Day</button>
+            </div>
+          </header>
+
+          <section class="schedule" aria-label="24 hour schedule with half-hour slots">
+            <div class="schedule-list" id="scheduleList"></div>
+          </section>
+
+          <p class="footer">
+            Notes save automatically. Start with /work, /coffee, /health, /self,
+            /personal, or /admin to tag a time slot.
+          </p>
+        </section>
+
+        <aside class="shell todo-panel" aria-labelledby="todoTitle">
+          <section class="allocation-section" aria-labelledby="allocationTitle">
+            <div class="date-ring" id="dateRing">
+              <p class="allocation-center" id="allocationTotal">0h</p>
+            </div>
+            <div class="allocation-copy">
+              <h2 class="allocation-title" id="allocationTitle">Day allocation</h2>
+              <div class="allocation-legend" id="allocationLegend"></div>
+            </div>
+          </section>
+
+          <div class="todo-header">
+            <h2 class="todo-title" id="todoTitle">To do</h2>
+            <span class="todo-count" id="todoCount"></span>
+          </div>
+          <form class="todo-form" id="todoForm">
+            <div class="todo-fields" id="todoFields" hidden>
+              <input
+                class="todo-input"
+                id="todoInput"
+                type="text"
+                placeholder="Task title"
+                autocomplete="off"
+                aria-label="New task title"
+              />
+              <textarea
+                class="todo-detail-input"
+                id="todoDetailInput"
+                rows="1"
+                placeholder="Details (optional)"
+                aria-label="New task details"
+              ></textarea>
+            </div>
+            <button class="todo-add" type="submit" aria-label="Add task">+</button>
+          </form>
+          <ul class="todo-list" id="todoList"></ul>
+          <div class="completed-todos" id="completedTodos" tabindex="0" hidden>
+            <div class="completed-todos-label">
+              <span id="completedTodoCount">0 completed</span>
+            </div>
+            <ul class="completed-todo-list" id="completedTodoList"></ul>
+          </div>
+          <p class="todo-empty" id="todoEmpty">Nothing here yet.</p>
+
+          <section class="habit-section" aria-labelledby="habitTitle">
+            <div class="habit-header">
+              <div>
+                <h2 class="habit-title" id="habitTitle">Workouts</h2>
+                <p class="habit-month" id="habitMonth"></p>
+              </div>
+              <div class="habit-actions">
+                <div class="habit-navigation" aria-label="Calendar month">
+                  <button id="previousCalendarMonth" type="button" aria-label="Previous month">
+                    &#8249;
+                  </button>
+                  <button id="nextCalendarMonth" type="button" aria-label="Next month">
+                    &#8250;
+                  </button>
+                </div>
+                <span class="habit-count" id="habitCount"></span>
+              </div>
+            </div>
+            <form class="deadline-form" id="deadlineForm">
+              <input
+                class="deadline-input"
+                id="deadlineInput"
+                type="text"
+                placeholder="Add deadline"
+                aria-label="Deadline title"
+              />
+              <input
+                class="deadline-date"
+                id="deadlineDate"
+                type="date"
+                aria-label="Deadline date"
+              />
+              <button class="deadline-add" type="submit">Add</button>
+            </form>
+            <div class="habit-weekdays" aria-hidden="true">
+              <span class="habit-weekday">S</span>
+              <span class="habit-weekday">M</span>
+              <span class="habit-weekday">T</span>
+              <span class="habit-weekday">W</span>
+              <span class="habit-weekday">T</span>
+              <span class="habit-weekday">F</span>
+              <span class="habit-weekday">S</span>
+            </div>
+            <div class="habit-grid" id="habitGrid"></div>
+          </section>
+
+          <section class="budget-section" aria-labelledby="budgetTitle">
+            <div class="budget-header">
+              <div>
+                <h2 class="budget-title" id="budgetTitle">Weekly budget</h2>
+                <p class="budget-week" id="budgetWeek"></p>
+              </div>
+            </div>
+            <div class="budget-summary">
+              <div class="budget-total-row">
+                <span class="budget-rolling-total" id="budgetRollingTotal">$0.00</span>
+                <span>of</span>
+                <label class="budget-goal-wrap">
+                  $
+                  <input
+                    class="budget-goal"
+                    id="budgetGoalInput"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Goal"
+                    aria-label="Weekly budget goal"
+                  />
+                </label>
+              </div>
+              <div class="budget-progress" aria-hidden="true">
+                <div class="budget-progress-fill" id="budgetProgressFill"></div>
+              </div>
+              <form class="budget-amount-form" id="budgetAmountForm">
+                <input
+                  class="budget-amount"
+                  id="budgetAmountInput"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Add amount spent"
+                  aria-label="Amount spent"
+                />
+                <button class="budget-add" type="submit">Add</button>
+              </form>
+              <button class="budget-undo" id="budgetUndoButton" type="button" hidden>
+                Undo last amount
+              </button>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      (() => {
+        const STORAGE_KEY = "daily-agenda-notes";
+        const WORKOUT_STORAGE_KEY = "daily-agenda-workouts";
+        const DEADLINE_STORAGE_KEY = "daily-agenda-deadlines";
+        const COURSE_DEADLINES_SEEDED_KEY = "daily-agenda-course-deadlines-2026";
+        const COURSE_DEADLINES_UPDATED_KEY = "daily-agenda-course-deadlines-2026-v2";
+        const BUDGET_STORAGE_KEY = "daily-agenda-weekly-budgets";
+        const scheduleList = document.getElementById("scheduleList");
+        const dateRing = document.getElementById("dateRing");
+        const allocationTotal = document.getElementById("allocationTotal");
+        const dateNumber = document.getElementById("dateNumber");
+        const dateWeekday = document.getElementById("dateWeekday");
+        const dateMonth = document.getElementById("dateMonth");
+        const allocationLegend = document.getElementById("allocationLegend");
+        const previousDayButton = document.getElementById("previousDayButton");
+        const todayButton = document.getElementById("todayButton");
+        const nextDayButton = document.getElementById("nextDayButton");
+        const clearDayButton = document.getElementById("clearDayButton");
+        const todoForm = document.getElementById("todoForm");
+        const todoFields = document.getElementById("todoFields");
+        const todoInput = document.getElementById("todoInput");
+        const todoDetailInput = document.getElementById("todoDetailInput");
+        const todoList = document.getElementById("todoList");
+        const completedTodos = document.getElementById("completedTodos");
+        const completedTodoCount = document.getElementById("completedTodoCount");
+        const completedTodoList = document.getElementById("completedTodoList");
+        const todoCount = document.getElementById("todoCount");
+        const todoEmpty = document.getElementById("todoEmpty");
+        const habitMonth = document.getElementById("habitMonth");
+        const habitCount = document.getElementById("habitCount");
+        const habitGrid = document.getElementById("habitGrid");
+        const previousCalendarMonth = document.getElementById(
+          "previousCalendarMonth"
+        );
+        const nextCalendarMonth = document.getElementById("nextCalendarMonth");
+        const deadlineForm = document.getElementById("deadlineForm");
+        const deadlineInput = document.getElementById("deadlineInput");
+        const deadlineDate = document.getElementById("deadlineDate");
+        const budgetWeek = document.getElementById("budgetWeek");
+        const budgetGoalInput = document.getElementById("budgetGoalInput");
+        const budgetRollingTotal = document.getElementById("budgetRollingTotal");
+        const budgetProgressFill = document.getElementById("budgetProgressFill");
+        const budgetAmountForm = document.getElementById("budgetAmountForm");
+        const budgetAmountInput = document.getElementById("budgetAmountInput");
+        const budgetUndoButton = document.getElementById("budgetUndoButton");
+
+        const TIME_TAGS = [
+          { value: "work", label: "Work", color: "#b9ddf5" },
+          {
+            value: "coffee",
+            label: "Coffee chat",
+            color: "#c8bdf2",
+            parent: "work"
+          },
+          { value: "health", label: "Health", color: "#b9e4c9" },
+          { value: "selfcare", label: "Self care", color: "#f6b8c8" },
+          { value: "friends", label: "Personal", color: "#f5c6aa" },
+          { value: "admin", label: "Admin", color: "#f3d891" }
+        ];
+
+        const TAG_SHORTCUTS = {
+          work: "work",
+          w: "work",
+          coffee: "coffee",
+          chat: "coffee",
+          c: "coffee",
+          health: "health",
+          h: "health",
+          self: "selfcare",
+          selfcare: "selfcare",
+          s: "selfcare",
+          personal: "friends",
+          p: "friends",
+          admin: "admin",
+          a: "admin"
+        };
+
+        const normalizeDate = (date) =>
+          new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
+        let actualToday = normalizeDate(new Date());
+        let selectedDate = new Date(actualToday);
+        let calendarDate = new Date(
+          actualToday.getFullYear(),
+          actualToday.getMonth(),
+          1,
+          12
+        );
+
+        const getDateKey = (date) =>
+          [
+            date.getFullYear(),
+            String(date.getMonth() + 1).padStart(2, "0"),
+            String(date.getDate()).padStart(2, "0")
+          ].join("-");
+
+        const getMonthKey = (date) =>
+          `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+        const getWeekStart = (date) => {
+          const start = normalizeDate(date);
+          start.setDate(start.getDate() - start.getDay());
+          return start;
+        };
+
+        const isToday = (date) => getDateKey(date) === getDateKey(actualToday);
+
+        const formatDateParts = (date) => ({
+          dayNumber: new Intl.DateTimeFormat(undefined, { day: "numeric" }).format(date),
+          weekday: new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(date),
+          month: new Intl.DateTimeFormat(undefined, { month: "long" }).format(date)
+        });
+
+        const formatClock = (totalMinutes) => {
+          const hour = Math.floor(totalMinutes / 60) % 24;
+          const minutes = totalMinutes % 60;
+          const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+          return `${displayHour}:${String(minutes).padStart(2, "0")}`;
+        };
+
+        const formatTime = (slot) => {
+          const startMinutes = slot * 30;
+          const endMinutes = startMinutes + 30;
+          const suffixHour = Math.floor((endMinutes % 1440) / 60);
+          const suffix = suffixHour >= 12 ? "PM" : "AM";
+          return `${formatClock(startMinutes)} - ${formatClock(endMinutes)} ${suffix}`;
+        };
+
+        const loadStoredObject = (storageKey) => {
+          try {
+            const saved = localStorage.getItem(storageKey);
+            const parsed = saved ? JSON.parse(saved) : {};
+            return typeof parsed === "object" && parsed !== null ? parsed : {};
+          } catch (error) {
+            return {};
+          }
+        };
+
+        const loadAgenda = () => loadStoredObject(STORAGE_KEY);
+        const loadWorkouts = () => loadStoredObject(WORKOUT_STORAGE_KEY);
+        const loadDeadlines = () => loadStoredObject(DEADLINE_STORAGE_KEY);
+        const loadBudgets = () => loadStoredObject(BUDGET_STORAGE_KEY);
+        const saveAgenda = (agenda) =>
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(agenda));
+
+        const normalizeTodos = (todos) => {
+          const normalized = Array.isArray(todos) ? todos : [];
+          normalized.forEach((todo) => {
+            todo.title = todo.title || todo.text || "";
+            todo.details = todo.details || "";
+            todo.priority = todo.priority || "none";
+            todo.completed = Boolean(todo.completed);
+          });
+          return normalized;
+        };
+
+        const getCarriedTodos = (agenda, targetKey) => {
+          const previousKeys = Object.keys(agenda)
+            .filter((key) => /^\d{4}-\d{2}-\d{2}$/.test(key) && key < targetKey)
+            .sort()
+            .reverse();
+
+          for (const key of previousKeys) {
+            if (!Array.isArray(agenda[key]?.todos)) {
+              continue;
+            }
+
+            return normalizeTodos(agenda[key].todos)
+              .filter((todo) => !todo.completed)
+              .map((todo) => ({
+                title: todo.title,
+                details: todo.details,
+                priority: todo.priority,
+                completed: false
+              }));
+          }
+
+          return [];
+        };
+
+        const state = loadAgenda();
+        const workoutState = loadWorkouts();
+        const deadlineState = loadDeadlines();
+        const budgetState = loadBudgets();
+        let scheduleStartSlot = null;
+
+        const COURSE_DEADLINES = {
+          "2026-10-05": [
+            "Pricing Strategy - Group Assignment (10%), 3 PM",
+            "Pricing Strategy - Atlantic Random Spreadsheet (contributes to Participation)"
+          ],
+          "2026-10-09": ["Health Consulting - Statement of work"],
+          "2026-10-19": [
+            "Pricing Strategy - Medi Cult Random Spreadsheet (contributes to Participation)"
+          ],
+          "2026-10-27": [
+            "Corporate Strategy - Team Case Report & Presentation (35%)"
+          ],
+          "2026-10-30": ["Health Consulting - Interim client deliverable"],
+          "2026-11-02": [
+            "Pricing Strategy - Group Assignment 2 (Quantitative) (20%), 3 PM",
+            "Pricing Strategy - Bistro Pricing Group's Performance (9th round) (10%)"
+          ],
+          "2026-11-16": [
+            "Pricing Strategy - Individual Assignment (10%), 3 PM"
+          ],
+          "2026-11-17": ["Corporate Strategy - Team Prep of Questions (5%)"],
+          "2026-11-20": ["Health Consulting - Final client presentation"],
+          "2026-11-27": ["Health Consulting - Teammate evaluation"],
+          "2026-12-02": [
+            "Health Consulting - Reflection paper and business development brief"
+          ],
+          "2026-12-14": ["Pricing Strategy - Final Exam (30%)"],
+          "2026-12-15": ["Corporate Strategy - Final Exam (55%)"]
+        };
+
+        const seedCourseDeadlines = () => {
+          if (localStorage.getItem(COURSE_DEADLINES_SEEDED_KEY)) {
+            return;
+          }
+
+          Object.entries(COURSE_DEADLINES).forEach(([dateKey, titles]) => {
+            const savedDeadlines = Array.isArray(deadlineState[dateKey])
+              ? deadlineState[dateKey]
+              : [];
+            deadlineState[dateKey] = [...new Set([...savedDeadlines, ...titles])];
+          });
+
+          localStorage.setItem(DEADLINE_STORAGE_KEY, JSON.stringify(deadlineState));
+          localStorage.setItem(COURSE_DEADLINES_SEEDED_KEY, "true");
+        };
+
+        const updateCourseDeadlines = () => {
+          if (localStorage.getItem(COURSE_DEADLINES_UPDATED_KEY)) {
+            return;
+          }
+
+          const replacements = {
+            "2026-10-05": [
+              "Pricing Strategy - Atlantic",
+              "Pricing Strategy - Atlantic Random Spreadsheet (contributes to Participation)"
+            ],
+            "2026-10-19": [
+              "Pricing Strategy - Medi Cult",
+              "Pricing Strategy - Medi Cult Random Spreadsheet (contributes to Participation)"
+            ]
+          };
+
+          Object.entries(replacements).forEach(([dateKey, [oldTitle, newTitle]]) => {
+            deadlineState[dateKey] = (deadlineState[dateKey] || []).map((title) =>
+              title === oldTitle ? newTitle : title
+            );
+          });
+
+          localStorage.setItem(DEADLINE_STORAGE_KEY, JSON.stringify(deadlineState));
+          localStorage.setItem(COURSE_DEADLINES_UPDATED_KEY, "true");
+        };
+
+        seedCourseDeadlines();
+        updateCourseDeadlines();
+
+        const ensureDay = (date, carryForward = false) => {
+          const dateKey = getDateKey(date);
+          const latestState = loadAgenda();
+          let day = latestState[dateKey] || state[dateKey];
+          let shouldSave = false;
+
+          if (!day) {
+            day = { todos: [] };
+            shouldSave = carryForward;
+          }
+
+          if (!Array.isArray(day.todos)) {
+            day.todos = [];
+          }
+
+          if (typeof day.tags !== "object" || day.tags === null) {
+            day.tags = {};
+          }
+
+          if (typeof day.details !== "object" || day.details === null) {
+            day.details = {};
+          }
+
+          if (carryForward && day.todosInitialized !== true) {
+            if (day.todos.length === 0) {
+              day.todos = getCarriedTodos(latestState, dateKey);
+            }
+            day.todosInitialized = true;
+            shouldSave = true;
+          }
+
+          day.todos = normalizeTodos(day.todos);
+          state[dateKey] = day;
+
+          if (shouldSave) {
+            latestState[dateKey] = day;
+            saveAgenda(latestState);
+          }
+
+          return day;
+        };
+
+        const saveNote = (dateKey, slot, value) => {
+          const latestState = loadAgenda();
+          latestState[dateKey] = latestState[dateKey] || { todos: [] };
+          state[dateKey] = state[dateKey] || latestState[dateKey];
+
+          if (value.trim()) {
+            state[dateKey][slot] = value;
+            latestState[dateKey][slot] = value;
+          } else {
+            delete state[dateKey][slot];
+            delete latestState[dateKey][slot];
+          }
+
+          saveAgenda(latestState);
+        };
+
+        const saveNoteDetail = (dateKey, slot, value) => {
+          const latestState = loadAgenda();
+          latestState[dateKey] = latestState[dateKey] || { todos: [] };
+          latestState[dateKey].details =
+            typeof latestState[dateKey].details === "object" &&
+            latestState[dateKey].details !== null
+              ? latestState[dateKey].details
+              : {};
+          state[dateKey] = state[dateKey] || latestState[dateKey];
+          state[dateKey].details = state[dateKey].details || {};
+
+          if (value.trim()) {
+            state[dateKey].details[slot] = value;
+            latestState[dateKey].details[slot] = value;
+          } else {
+            delete state[dateKey].details[slot];
+            delete latestState[dateKey].details[slot];
+          }
+
+          saveAgenda(latestState);
+        };
+
+        const applyTagStyle = (select, value) => {
+          select.className = `slot-tag${value ? ` tag-${value}` : ""}`;
+        };
+
+        const parseTagShortcut = (value) => {
+          const match = value.match(/(?:^|\s)\/([a-z]+)\s*$/i);
+          if (!match) {
+            return null;
+          }
+
+          const tag = TAG_SHORTCUTS[match[1].toLowerCase()];
+          if (!tag) {
+            return null;
+          }
+
+          return {
+            tag,
+            text: `${value.slice(0, match.index)}${value.slice(
+              match.index + match[0].length
+            )}`.trimEnd()
+          };
+        };
+
+        const saveTag = (dateKey, slot, value) => {
+          const latestState = loadAgenda();
+          latestState[dateKey] = latestState[dateKey] || { todos: [], tags: {} };
+          latestState[dateKey].tags =
+            typeof latestState[dateKey].tags === "object" &&
+            latestState[dateKey].tags !== null
+              ? latestState[dateKey].tags
+              : {};
+          state[dateKey] = state[dateKey] || latestState[dateKey];
+          state[dateKey].tags = state[dateKey].tags || {};
+
+          if (value) {
+            state[dateKey].tags[slot] = value;
+            latestState[dateKey].tags[slot] = value;
+          } else {
+            delete state[dateKey].tags[slot];
+            delete latestState[dateKey].tags[slot];
+          }
+
+          saveAgenda(latestState);
+          renderAllocationRing(state[dateKey]);
+        };
+
+        const formatTaggedTime = (slotCount) => {
+          const hours = slotCount / 2;
+          return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
+        };
+
+        const renderAllocationRing = (day) => {
+          const tags = day?.tags || {};
+          const counts = Object.fromEntries(TIME_TAGS.map((tag) => [tag.value, 0]));
+
+          Object.values(tags).forEach((value) => {
+            const tag = TIME_TAGS.find((item) => item.value === value);
+            const allocationValue = tag?.parent || value;
+
+            if (allocationValue in counts) {
+              counts[allocationValue] += 1;
+            }
+          });
+
+          const segments = [];
+          let cursor = 0;
+
+          TIME_TAGS.forEach((tag) => {
+            const degrees = counts[tag.value] * 7.5;
+            if (degrees > 0) {
+              segments.push(`${tag.color} ${cursor}deg ${cursor + degrees}deg`);
+              cursor += degrees;
+            }
+          });
+
+          segments.push(`rgba(15, 23, 42, 0.08) ${cursor}deg 360deg`);
+          dateRing.style.background = `conic-gradient(${segments.join(", ")})`;
+          allocationLegend.replaceChildren();
+
+          TIME_TAGS.forEach((tag) => {
+            if (counts[tag.value] === 0) {
+              return;
+            }
+
+            const item = document.createElement("span");
+            item.className = "allocation-item";
+
+            const dot = document.createElement("span");
+            dot.className = "allocation-dot";
+            dot.style.background = tag.color;
+
+            const label = document.createElement("span");
+            label.textContent = `${tag.label} ${formatTaggedTime(
+              counts[tag.value]
+            )}`;
+
+            item.append(dot, label);
+            allocationLegend.appendChild(item);
+          });
+
+          if (allocationLegend.childElementCount === 0) {
+            const empty = document.createElement("span");
+            empty.className = "allocation-empty";
+            empty.textContent = "Tag time slots to see your day";
+            allocationLegend.appendChild(empty);
+          }
+
+          const taggedSlots = Object.values(counts).reduce((sum, count) => sum + count, 0);
+          allocationTotal.textContent = formatTaggedTime(taggedSlots);
+          dateRing.title = `${formatTaggedTime(taggedSlots)} of 24h tagged`;
+        };
+
+        const saveTodos = (dateKey) => {
+          const latestState = loadAgenda();
+          latestState[dateKey] = latestState[dateKey] || {};
+          latestState[dateKey].todos = state[dateKey].todos;
+          latestState[dateKey].todosInitialized = true;
+          state[dateKey].todosInitialized = true;
+          saveAgenda(latestState);
+        };
+
+        const saveWorkoutMonth = (monthKey) => {
+          const latestWorkouts = loadWorkouts();
+          latestWorkouts[monthKey] = workoutState[monthKey];
+          localStorage.setItem(WORKOUT_STORAGE_KEY, JSON.stringify(latestWorkouts));
+        };
+
+        const saveDeadlines = () => {
+          localStorage.setItem(DEADLINE_STORAGE_KEY, JSON.stringify(deadlineState));
+        };
+
+        const saveBudgetWeek = (weekKey) => {
+          const latestBudgets = loadBudgets();
+          latestBudgets[weekKey] = budgetState[weekKey];
+          localStorage.setItem(BUDGET_STORAGE_KEY, JSON.stringify(latestBudgets));
+        };
+
+        const normalizeBudgetWeek = (week) => {
+          if (Array.isArray(week)) {
+            return {
+              goal: week.reduce((sum, category) => sum + (Number(category.goal) || 0), 0),
+              entries: week.flatMap((category) =>
+                Array.isArray(category.entries)
+                  ? category.entries
+                      .map(Number)
+                      .filter((amount) => Number.isFinite(amount) && amount > 0)
+                  : []
+              )
+            };
+          }
+
+          return {
+            goal: Math.max(0, Number(week?.goal) || 0),
+            entries: Array.isArray(week?.entries)
+              ? week.entries
+                  .map(Number)
+                  .filter((amount) => Number.isFinite(amount) && amount > 0)
+              : []
+          };
+        };
+
+        const ensureCurrentBudgetWeek = () => {
+          const currentWeekKey = getDateKey(getWeekStart(actualToday));
+          const latestBudgets = loadBudgets();
+
+          if (latestBudgets[currentWeekKey]) {
+            budgetState[currentWeekKey] = normalizeBudgetWeek(
+              latestBudgets[currentWeekKey]
+            );
+            return;
+          }
+
+          const previousWeekKey = Object.keys(latestBudgets)
+            .filter((key) => /^\d{4}-\d{2}-\d{2}$/.test(key) && key < currentWeekKey)
+            .sort()
+            .reverse()
+            .find((key) => latestBudgets[key]);
+
+          const previousWeek = previousWeekKey
+            ? normalizeBudgetWeek(latestBudgets[previousWeekKey])
+            : { goal: 0, entries: [] };
+          budgetState[currentWeekKey] = {
+            goal: previousWeek.goal,
+            entries: []
+          };
+          saveBudgetWeek(currentWeekKey);
+        };
+
+        const getCurrentSlot = () => {
+          const rightNow = new Date();
+          return rightNow.getHours() * 2 + (rightNow.getMinutes() >= 30 ? 1 : 0);
+        };
+
+        const updateCurrentSlot = () => {
+          const activeSlot = getCurrentSlot();
+          const showCurrent = isToday(selectedDate);
+
+          document.querySelectorAll(".slot").forEach((slot) => {
+            slot.classList.toggle(
+              "current",
+              showCurrent && Number(slot.dataset.slot) === activeSlot
+            );
+          });
+        };
+
+        const scrollToCurrentSlot = (behavior = "smooth") => {
+          // Today's schedule begins at the current slot, so no extra scrolling is needed.
+        };
+
+        const rotateScheduleToCurrentTime = () => {
+          if (
+            !isToday(selectedDate) ||
+            document.activeElement?.matches(".note, .slot-tag") ||
+            scheduleStartSlot === getCurrentSlot()
+          ) {
+            return;
+          }
+
+          buildSchedule();
+          updateCurrentSlot();
+        };
+
+        const insertScheduleSlot = (dateKey, slotIndex) => {
+          const slotOrder = Array.from(
+            { length: 48 },
+            (_, displayIndex) => (displayIndex + 12) % 48
+          );
+          const insertAt = slotOrder.indexOf(slotIndex);
+          const lastSlot = slotOrder.at(-1);
+          const latestState = loadAgenda();
+          const day = latestState[dateKey] || ensureDay(selectedDate);
+          day.tags =
+            typeof day.tags === "object" && day.tags !== null ? day.tags : {};
+          day.details =
+            typeof day.details === "object" && day.details !== null
+              ? day.details
+              : {};
+
+          if (
+            String(day[lastSlot] || "").trim() ||
+            Boolean(day.tags[lastSlot]) ||
+            String(day.details[lastSlot] || "").trim()
+          ) {
+            window.alert(
+              "The 5:30 AM slot is occupied. Clear it before shifting the schedule."
+            );
+            return;
+          }
+
+          for (
+            let displayIndex = slotOrder.length - 1;
+            displayIndex > insertAt;
+            displayIndex -= 1
+          ) {
+            const destination = slotOrder[displayIndex];
+            const source = slotOrder[displayIndex - 1];
+
+            if (day[source]) {
+              day[destination] = day[source];
+            } else {
+              delete day[destination];
+            }
+
+            if (day.tags[source]) {
+              day.tags[destination] = day.tags[source];
+            } else {
+              delete day.tags[destination];
+            }
+
+            if (day.details[source]) {
+              day.details[destination] = day.details[source];
+            } else {
+              delete day.details[destination];
+            }
+          }
+
+          delete day[slotIndex];
+          delete day.tags[slotIndex];
+          delete day.details[slotIndex];
+          latestState[dateKey] = day;
+          state[dateKey] = day;
+          saveAgenda(latestState);
+          buildSchedule();
+          renderAllocationRing(day);
+
+          requestAnimationFrame(() => {
+            const insertedSlot = document.querySelector(
+              `[data-slot="${slotIndex}"]`
+            );
+            insertedSlot?.closest(".late-hours")?.classList.add("is-open");
+            insertedSlot?.querySelector(".note")?.focus();
+          });
+        };
+
+        const removeScheduleSlot = (dateKey, slotIndex) => {
+          const slotOrder = Array.from(
+            { length: 48 },
+            (_, displayIndex) => (displayIndex + 12) % 48
+          );
+          const removeAt = slotOrder.indexOf(slotIndex);
+          const lastSlot = slotOrder.at(-1);
+          const latestState = loadAgenda();
+          const day = latestState[dateKey] || ensureDay(selectedDate);
+          day.tags =
+            typeof day.tags === "object" && day.tags !== null ? day.tags : {};
+          day.details =
+            typeof day.details === "object" && day.details !== null
+              ? day.details
+              : {};
+
+          if (
+            (String(day[slotIndex] || "").trim() ||
+              day.tags[slotIndex] ||
+              String(day.details[slotIndex] || "").trim()) &&
+            !window.confirm(
+              `Remove the ${formatTime(slotIndex)} entry and shift later entries up?`
+            )
+          ) {
+            return;
+          }
+
+          for (
+            let displayIndex = removeAt;
+            displayIndex < slotOrder.length - 1;
+            displayIndex += 1
+          ) {
+            const destination = slotOrder[displayIndex];
+            const source = slotOrder[displayIndex + 1];
+
+            if (day[source]) {
+              day[destination] = day[source];
+            } else {
+              delete day[destination];
+            }
+
+            if (day.tags[source]) {
+              day.tags[destination] = day.tags[source];
+            } else {
+              delete day.tags[destination];
+            }
+
+            if (day.details[source]) {
+              day.details[destination] = day.details[source];
+            } else {
+              delete day.details[destination];
+            }
+          }
+
+          delete day[lastSlot];
+          delete day.tags[lastSlot];
+          delete day.details[lastSlot];
+          latestState[dateKey] = day;
+          state[dateKey] = day;
+          saveAgenda(latestState);
+          buildSchedule();
+          renderAllocationRing(day);
+
+          requestAnimationFrame(() => {
+            const shiftedSlot = document.querySelector(
+              `[data-slot="${slotIndex}"]`
+            );
+            shiftedSlot?.closest(".late-hours")?.classList.add("is-open");
+            shiftedSlot?.querySelector(".note")?.focus();
+          });
+        };
+
+        const buildSchedule = () => {
+          const dateKey = getDateKey(selectedDate);
+          const day = ensureDay(selectedDate, isToday(selectedDate));
+          const startSlot = isToday(selectedDate) ? getCurrentSlot() : 12;
+          const rotatesFromCurrentTime = isToday(selectedDate);
+          scheduleStartSlot = startSlot;
+          scheduleList.replaceChildren();
+          let lateHoursContent = null;
+
+          for (let displayIndex = 0; displayIndex < 48; displayIndex += 1) {
+            const slotIndex = (displayIndex + startSlot) % 48;
+
+            if (!rotatesFromCurrentTime && slotIndex === 44) {
+              const lateHours = document.createElement("section");
+              lateHours.className = "late-hours";
+              lateHours.tabIndex = 0;
+              lateHours.setAttribute("aria-label", "Schedule after 10 PM");
+
+              const lateHoursLabel = document.createElement("div");
+              lateHoursLabel.className = "late-hours-label";
+              lateHoursLabel.textContent = "After 10 PM";
+
+              lateHoursContent = document.createElement("div");
+              lateHoursContent.className = "late-hours-content";
+              lateHours.append(lateHoursLabel, lateHoursContent);
+              scheduleList.appendChild(lateHours);
+            }
+
+            const slot = document.createElement("article");
+            slot.className = "slot";
+            slot.dataset.slot = String(slotIndex);
+
+            const timeLabel = document.createElement("div");
+            timeLabel.className = "time";
+            timeLabel.textContent = formatTime(slotIndex);
+
+            const insertButton = document.createElement("button");
+            insertButton.className = "slot-shift slot-insert";
+            insertButton.type = "button";
+            insertButton.textContent = "+";
+            insertButton.title = `Insert 30 minutes at ${formatTime(slotIndex)}`;
+            insertButton.setAttribute(
+              "aria-label",
+              `Insert 30 minutes at ${formatTime(slotIndex)} and shift later entries`
+            );
+            insertButton.addEventListener("click", () => {
+              insertScheduleSlot(dateKey, slotIndex);
+            });
+
+            const removeButton = document.createElement("button");
+            removeButton.className = "slot-shift slot-remove";
+            removeButton.type = "button";
+            removeButton.textContent = "\u2212";
+            removeButton.title = `Remove ${formatTime(slotIndex)} and shift up`;
+            removeButton.setAttribute(
+              "aria-label",
+              `Remove ${formatTime(slotIndex)} and shift later entries up`
+            );
+            removeButton.addEventListener("click", () => {
+              removeScheduleSlot(dateKey, slotIndex);
+            });
+            timeLabel.append(insertButton, removeButton);
+
+            const note = document.createElement("textarea");
+            note.className = "note";
+            note.placeholder = "Add title";
+            note.setAttribute("aria-label", `${formatTime(slotIndex)} title`);
+            note.rows = 1;
+            note.value = day[slotIndex] || "";
+            note.addEventListener("input", (event) => {
+              const shortcut = parseTagShortcut(event.target.value);
+
+              if (shortcut) {
+                event.target.value = shortcut.text;
+                tagSelect.value = shortcut.tag;
+                applyTagStyle(tagSelect, shortcut.tag);
+                saveTag(dateKey, slotIndex, shortcut.tag);
+              }
+
+              saveNote(dateKey, slotIndex, event.target.value);
+            });
+
+            const noteDetail = document.createElement("textarea");
+            noteDetail.className = "note note-detail";
+            noteDetail.placeholder = "Add details";
+            noteDetail.setAttribute(
+              "aria-label",
+              `${formatTime(slotIndex)} details`
+            );
+            noteDetail.rows = 1;
+            noteDetail.value = day.details[slotIndex] || "";
+            noteDetail.hidden = !noteDetail.value;
+            noteDetail.addEventListener("input", (event) => {
+              saveNoteDetail(dateKey, slotIndex, event.target.value);
+            });
+            noteDetail.addEventListener("blur", () => {
+              if (!noteDetail.value.trim()) {
+                noteDetail.hidden = true;
+                detailToggle.hidden = false;
+              }
+            });
+
+            const detailToggle = document.createElement("button");
+            detailToggle.className = "note-detail-toggle";
+            detailToggle.type = "button";
+            detailToggle.textContent = "+ Add details";
+            detailToggle.hidden = !noteDetail.hidden;
+            detailToggle.setAttribute(
+              "aria-label",
+              `Add details to ${formatTime(slotIndex)}`
+            );
+            detailToggle.addEventListener("click", () => {
+              noteDetail.hidden = false;
+              detailToggle.hidden = true;
+              noteDetail.focus();
+            });
+
+            const slotCopy = document.createElement("div");
+            slotCopy.className = "slot-copy";
+            slotCopy.append(note, noteDetail, detailToggle);
+
+            const tagSelect = document.createElement("select");
+            const savedTag = day.tags[slotIndex] || "";
+            const selectedTag = TIME_TAGS.some((tag) => tag.value === savedTag)
+              ? savedTag
+              : "";
+            tagSelect.setAttribute("aria-label", `${formatTime(slotIndex)} category`);
+
+            const noTagOption = document.createElement("option");
+            noTagOption.value = "";
+            noTagOption.textContent = "No tag";
+            tagSelect.appendChild(noTagOption);
+
+            TIME_TAGS.forEach((tag) => {
+              const option = document.createElement("option");
+              option.value = tag.value;
+              option.textContent = tag.label;
+              option.selected = selectedTag === tag.value;
+              tagSelect.appendChild(option);
+            });
+
+            applyTagStyle(tagSelect, selectedTag);
+            tagSelect.addEventListener("change", () => {
+              applyTagStyle(tagSelect, tagSelect.value);
+              saveTag(dateKey, slotIndex, tagSelect.value);
+            });
+
+            slot.append(timeLabel, slotCopy, tagSelect);
+            (lateHoursContent || scheduleList).appendChild(slot);
+          }
+        };
+
+        const renderTodos = () => {
+          const dateKey = getDateKey(selectedDate);
+          const todos = ensureDay(selectedDate, isToday(selectedDate)).todos;
+          const priorityOrder = { high: 0, medium: 1, none: 2, low: 3 };
+
+          todos.sort((first, second) => {
+            if (first.completed !== second.completed) {
+              return Number(first.completed) - Number(second.completed);
+            }
+            if (first.completed) {
+              return 0;
+            }
+            return priorityOrder[first.priority] - priorityOrder[second.priority];
+          });
+          todoList.replaceChildren();
+          completedTodoList.replaceChildren();
+
+          todos.forEach((todo, index) => {
+            const item = document.createElement("li");
+            item.className = `todo-item${todo.completed ? " completed" : ""}`;
+
+            const checkbox = document.createElement("input");
+            checkbox.className = "todo-check";
+            checkbox.type = "checkbox";
+            checkbox.checked = todo.completed;
+            checkbox.setAttribute("aria-label", `Mark ${todo.title} complete`);
+            checkbox.addEventListener("change", () => {
+              todo.completed = checkbox.checked;
+              saveTodos(dateKey);
+              renderTodos();
+            });
+
+            const copy = document.createElement("div");
+            copy.className = "todo-copy";
+
+            const title = document.createElement("textarea");
+            title.className = "todo-title-input";
+            title.rows = 1;
+            title.value = todo.title;
+            title.setAttribute("aria-label", `Edit ${todo.title} title`);
+            title.addEventListener("input", () => {
+              todo.title = title.value;
+              saveTodos(dateKey);
+            });
+            title.addEventListener("blur", () => {
+              todo.title = title.value.trim();
+              if (!todo.title) {
+                todos.splice(index, 1);
+              }
+              saveTodos(dateKey);
+              renderTodos();
+            });
+
+            const details = document.createElement("textarea");
+            details.className = "todo-detail";
+            details.rows = 1;
+            details.value = todo.details;
+            details.placeholder = "Add details";
+            details.setAttribute("aria-label", `Edit details for ${todo.title}`);
+            details.addEventListener("input", () => {
+              todo.details = details.value;
+              saveTodos(dateKey);
+            });
+            details.addEventListener("blur", () => {
+              todo.details = details.value.trim();
+              saveTodos(dateKey);
+              renderTodos();
+            });
+
+            const detailToggle = document.createElement("button");
+            detailToggle.className = "todo-detail-toggle";
+            detailToggle.type = "button";
+            detailToggle.textContent = "+ details";
+            detailToggle.setAttribute("aria-label", `Add details to ${todo.title}`);
+            detailToggle.hidden = Boolean(todo.details);
+            detailToggle.addEventListener("click", () => {
+              detailToggle.hidden = true;
+              details.hidden = false;
+              details.focus();
+            });
+
+            details.hidden = !todo.details;
+            copy.append(title, details, detailToggle);
+
+            const priority = document.createElement("select");
+            priority.className = `todo-priority priority-${todo.priority}`;
+            priority.setAttribute("aria-label", `Priority for ${todo.title}`);
+
+            [
+              ["none", "None"],
+              ["high", "High"],
+              ["medium", "Med"],
+              ["low", "Low"]
+            ].forEach(([value, label]) => {
+              const option = document.createElement("option");
+              option.value = value;
+              option.textContent = label;
+              option.selected = todo.priority === value;
+              priority.appendChild(option);
+            });
+
+            priority.addEventListener("change", () => {
+              todo.priority = priority.value;
+              saveTodos(dateKey);
+              renderTodos();
+            });
+
+            const removeButton = document.createElement("button");
+            removeButton.className = "todo-remove";
+            removeButton.type = "button";
+            removeButton.textContent = "×";
+            removeButton.setAttribute("aria-label", `Remove ${todo.title}`);
+            removeButton.addEventListener("click", () => {
+              todos.splice(index, 1);
+              saveTodos(dateKey);
+              renderTodos();
+            });
+
+            item.append(checkbox, copy, priority, removeButton);
+            (todo.completed ? completedTodoList : todoList).appendChild(item);
+          });
+
+          const remaining = todos.filter((todo) => !todo.completed).length;
+          const completed = todos.length - remaining;
+          todoCount.textContent = `${remaining} left`;
+          completedTodoCount.textContent = `${completed} completed`;
+          completedTodos.hidden = completed === 0;
+          todoEmpty.hidden = todos.length > 0;
+        };
+
+        const renderWorkoutTracker = () => {
+          const year = calendarDate.getFullYear();
+          const month = calendarDate.getMonth();
+          const monthKey = getMonthKey(calendarDate);
+          const latestWorkouts = loadWorkouts();
+          const latestDeadlines = loadDeadlines();
+          workoutState[monthKey] = Array.isArray(latestWorkouts[monthKey])
+            ? latestWorkouts[monthKey]
+            : workoutState[monthKey] || [];
+          deadlineDate.value = getDateKey(new Date(year, month, 1, 12));
+
+          const completedDays = workoutState[monthKey];
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          const sundayFirstOffset = new Date(year, month, 1).getDay();
+          const monthName = new Intl.DateTimeFormat(undefined, { month: "long" }).format(
+            calendarDate
+          );
+          const showingCurrentMonth =
+            year === actualToday.getFullYear() && month === actualToday.getMonth();
+
+          habitMonth.textContent = `${monthName} ${year}`;
+          habitGrid.replaceChildren();
+
+          for (let index = 0; index < sundayFirstOffset; index += 1) {
+            const blank = document.createElement("span");
+            blank.className = "habit-blank";
+            blank.setAttribute("aria-hidden", "true");
+            habitGrid.appendChild(blank);
+          }
+
+          for (let day = 1; day <= daysInMonth; day += 1) {
+            const dayButton = document.createElement("button");
+            const isCompleted = completedDays.includes(day);
+            const isCurrentDay = showingCurrentMonth && day === actualToday.getDate();
+            const deadlineKey = getDateKey(new Date(year, month, day, 12));
+            const deadlines = Array.isArray(latestDeadlines[deadlineKey])
+              ? latestDeadlines[deadlineKey].filter((title) => typeof title === "string")
+              : [];
+            deadlineState[deadlineKey] = deadlines;
+
+            dayButton.className = [
+              "habit-day",
+              isCompleted ? "completed" : "",
+              isCurrentDay ? "today" : "",
+              deadlines.length > 0 ? "has-deadline" : ""
+            ]
+              .filter(Boolean)
+              .join(" ");
+            dayButton.type = "button";
+            dayButton.textContent = String(day);
+            dayButton.setAttribute("aria-pressed", String(isCompleted));
+            dayButton.setAttribute(
+              "aria-label",
+              `${isCompleted ? "Remove" : "Mark"} workout for ${monthName} ${day}, ${year}${
+                deadlines.length > 0 ? `. Deadline: ${deadlines.join(", ")}` : ""
+              }`
+            );
+            if (deadlines.length > 0) {
+              dayButton.dataset.deadline = deadlines.join(" · ");
+            }
+
+            dayButton.addEventListener("click", () => {
+              const completedIndex = completedDays.indexOf(day);
+              if (completedIndex >= 0) {
+                completedDays.splice(completedIndex, 1);
+              } else {
+                completedDays.push(day);
+                completedDays.sort((first, second) => first - second);
+              }
+              saveWorkoutMonth(monthKey);
+              renderWorkoutTracker();
+            });
+
+            habitGrid.appendChild(dayButton);
+          }
+
+          habitCount.textContent = `${completedDays.length}/${daysInMonth}`;
+        };
+
+        const renderBudget = () => {
+          const weekStart = getWeekStart(selectedDate);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6);
+          const weekKey = getDateKey(weekStart);
+          const latestBudgets = loadBudgets();
+          budgetState[weekKey] = normalizeBudgetWeek(
+            latestBudgets[weekKey] || budgetState[weekKey]
+          );
+          const week = budgetState[weekKey];
+
+          const startLabel = new Intl.DateTimeFormat(undefined, {
+            month: "short",
+            day: "numeric"
+          }).format(weekStart);
+          const endLabel = new Intl.DateTimeFormat(undefined, {
+            month: "short",
+            day: "numeric"
+          }).format(weekEnd);
+          budgetWeek.textContent = `${startLabel} – ${endLabel}`;
+          const total = week.entries.reduce((sum, amount) => sum + amount, 0);
+          const progress = week.goal > 0 ? (total / week.goal) * 100 : 0;
+
+          budgetRollingTotal.textContent = `$${total.toFixed(2)}`;
+          budgetGoalInput.value = week.goal ? week.goal.toFixed(2) : "";
+          budgetProgressFill.style.width = `${Math.min(progress, 100)}%`;
+          budgetProgressFill.classList.toggle("over", progress > 100);
+          budgetUndoButton.hidden = week.entries.length === 0;
+        };
+
+        const renderDateHeader = () => {
+          const parts = formatDateParts(selectedDate);
+          dateNumber.textContent = parts.dayNumber;
+          dateWeekday.textContent = parts.weekday;
+          dateMonth.textContent = `${parts.month} ${selectedDate.getFullYear()}`;
+          nextDayButton.disabled = false;
+          todayButton.disabled = isToday(selectedDate);
+        };
+
+        const closeTodoForm = () => {
+          todoInput.value = "";
+          todoDetailInput.value = "";
+          todoForm.classList.remove("is-open");
+          todoFields.hidden = true;
+        };
+
+        const renderSelectedDate = ({ scrollToNow = false } = {}) => {
+          const dateKey = getDateKey(selectedDate);
+          const latestState = loadAgenda();
+          if (latestState[dateKey]) {
+            state[dateKey] = latestState[dateKey];
+          }
+          const day = ensureDay(selectedDate, isToday(selectedDate));
+          closeTodoForm();
+          renderDateHeader();
+          buildSchedule();
+          renderAllocationRing(day);
+          renderTodos();
+          renderWorkoutTracker();
+          renderBudget();
+          updateCurrentSlot();
+          if (scrollToNow) {
+            scrollToCurrentSlot("auto");
+          }
+        };
+
+        previousCalendarMonth.addEventListener("click", () => {
+          calendarDate = new Date(
+            calendarDate.getFullYear(),
+            calendarDate.getMonth() - 1,
+            1,
+            12
+          );
+          renderWorkoutTracker();
+        });
+
+        nextCalendarMonth.addEventListener("click", () => {
+          calendarDate = new Date(
+            calendarDate.getFullYear(),
+            calendarDate.getMonth() + 1,
+            1,
+            12
+          );
+          renderWorkoutTracker();
+        });
+
+        previousDayButton.addEventListener("click", () => {
+          selectedDate.setDate(selectedDate.getDate() - 1);
+          selectedDate = normalizeDate(selectedDate);
+          renderSelectedDate();
+        });
+
+        nextDayButton.addEventListener("click", () => {
+          selectedDate.setDate(selectedDate.getDate() + 1);
+          selectedDate = normalizeDate(selectedDate);
+          renderSelectedDate({ scrollToNow: isToday(selectedDate) });
+        });
+
+        todayButton.addEventListener("click", () => {
+          selectedDate = new Date(actualToday);
+          renderSelectedDate({ scrollToNow: true });
+        });
+
+        clearDayButton.addEventListener("click", () => {
+          const label = new Intl.DateTimeFormat(undefined, {
+            month: "long",
+            day: "numeric",
+            year: "numeric"
+          }).format(selectedDate);
+          const shouldClear = window.confirm(`Clear the agenda and to-do list for ${label}?`);
+          if (!shouldClear) {
+            return;
+          }
+
+          const dateKey = getDateKey(selectedDate);
+          const latestState = loadAgenda();
+          latestState[dateKey] = { todos: [], todosInitialized: true };
+          state[dateKey] = latestState[dateKey];
+          saveAgenda(latestState);
+          buildSchedule();
+          renderAllocationRing(state[dateKey]);
+          renderTodos();
+        });
+
+        deadlineForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const title = deadlineInput.value.trim();
+          const dateKey = deadlineDate.value;
+
+          if (!title) {
+            deadlineInput.focus();
+            return;
+          }
+
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+            deadlineDate.focus();
+            return;
+          }
+
+          const deadlines = Array.isArray(deadlineState[dateKey])
+            ? deadlineState[dateKey]
+            : [];
+          deadlines.push(title);
+          deadlineState[dateKey] = deadlines;
+          deadlineInput.value = "";
+          saveDeadlines();
+          renderWorkoutTracker();
+        });
+
+        todoForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          if (!todoForm.classList.contains("is-open")) {
+            todoForm.classList.add("is-open");
+            todoFields.hidden = false;
+            todoInput.focus();
+            return;
+          }
+
+          const title = todoInput.value.trim();
+          const details = todoDetailInput.value.trim();
+          if (!title) {
+            todoInput.focus();
+            return;
+          }
+
+          const dateKey = getDateKey(selectedDate);
+          const day = ensureDay(selectedDate, isToday(selectedDate));
+          day.todos.push({
+            title,
+            details,
+            completed: false,
+            priority: "none"
+          });
+          closeTodoForm();
+          saveTodos(dateKey);
+          renderTodos();
+        });
+
+        budgetGoalInput.addEventListener("change", () => {
+          const weekKey = getDateKey(getWeekStart(selectedDate));
+          budgetState[weekKey] = normalizeBudgetWeek(budgetState[weekKey]);
+          budgetState[weekKey].goal = Math.max(0, Number(budgetGoalInput.value) || 0);
+          saveBudgetWeek(weekKey);
+          renderBudget();
+        });
+
+        budgetAmountForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const amount = Number(budgetAmountInput.value);
+
+          if (!Number.isFinite(amount) || amount <= 0) {
+            budgetAmountInput.focus();
+            return;
+          }
+
+          const weekKey = getDateKey(getWeekStart(selectedDate));
+          budgetState[weekKey] = normalizeBudgetWeek(budgetState[weekKey]);
+          budgetState[weekKey].entries.push(amount);
+          budgetAmountInput.value = "";
+          saveBudgetWeek(weekKey);
+          renderBudget();
+        });
+
+        budgetUndoButton.addEventListener("click", () => {
+          const weekKey = getDateKey(getWeekStart(selectedDate));
+          budgetState[weekKey] = normalizeBudgetWeek(budgetState[weekKey]);
+
+          if (budgetState[weekKey].entries.length === 0) {
+            return;
+          }
+
+          budgetState[weekKey].entries.pop();
+          saveBudgetWeek(weekKey);
+          renderBudget();
+        });
+
+        window.addEventListener("storage", (event) => {
+          if (event.key === STORAGE_KEY) {
+            const dateKey = getDateKey(selectedDate);
+            const latestState = loadAgenda();
+            const latestDay = latestState[dateKey] || { todos: [] };
+            latestDay.todos = normalizeTodos(latestDay.todos);
+            latestDay.tags =
+              typeof latestDay.tags === "object" && latestDay.tags !== null
+                ? latestDay.tags
+                : {};
+            latestDay.details =
+              typeof latestDay.details === "object" && latestDay.details !== null
+                ? latestDay.details
+                : {};
+            state[dateKey] = state[dateKey] || { todos: [], tags: {} };
+
+            for (let slotIndex = 0; slotIndex < 48; slotIndex += 1) {
+              const note = document.querySelector(`[data-slot="${slotIndex}"] .note`);
+              const tagSelect = document.querySelector(
+                `[data-slot="${slotIndex}"] .slot-tag`
+              );
+              const noteDetail = document.querySelector(
+                `[data-slot="${slotIndex}"] .note-detail`
+              );
+              const detailToggle = document.querySelector(
+                `[data-slot="${slotIndex}"] .note-detail-toggle`
+              );
+              const latestValue = latestDay[slotIndex] || "";
+              const latestDetail = latestDay.details[slotIndex] || "";
+              const savedTag = latestDay.tags[slotIndex] || "";
+              const latestTag = TIME_TAGS.some((tag) => tag.value === savedTag)
+                ? savedTag
+                : "";
+              if (note && document.activeElement !== note) {
+                note.value = latestValue;
+              }
+              if (tagSelect && document.activeElement !== tagSelect) {
+                tagSelect.value = latestTag;
+                applyTagStyle(tagSelect, latestTag);
+              }
+              if (noteDetail && document.activeElement !== noteDetail) {
+                noteDetail.value = latestDetail;
+                noteDetail.hidden = !latestDetail;
+                if (detailToggle) {
+                  detailToggle.hidden = Boolean(latestDetail);
+                }
+              }
+            }
+
+            state[dateKey].tags = latestDay.tags;
+            state[dateKey].details = latestDay.details;
+            renderAllocationRing(state[dateKey]);
+
+            if (
+              JSON.stringify(state[dateKey]?.todos || []) !==
+              JSON.stringify(latestDay.todos)
+            ) {
+              state[dateKey] = latestDay;
+              renderTodos();
+            }
+          }
+
+          if (event.key === WORKOUT_STORAGE_KEY) {
+            renderWorkoutTracker();
+          }
+
+          if (event.key === DEADLINE_STORAGE_KEY) {
+            renderWorkoutTracker();
+          }
+
+          if (event.key === BUDGET_STORAGE_KEY) {
+            renderBudget();
+          }
+        });
+
+        const checkForNewDay = () => {
+          const currentDate = normalizeDate(new Date());
+          if (getDateKey(currentDate) === getDateKey(actualToday)) {
+            return;
+          }
+
+          const wasViewingToday = isToday(selectedDate);
+          const selectedIsNewToday = getDateKey(selectedDate) === getDateKey(currentDate);
+          actualToday = currentDate;
+          ensureCurrentBudgetWeek();
+
+          if (wasViewingToday || selectedIsNewToday) {
+            selectedDate = new Date(actualToday);
+            renderSelectedDate({ scrollToNow: true });
+          } else {
+            renderDateHeader();
+            renderWorkoutTracker();
+            renderBudget();
+          }
+        };
+
+        ensureCurrentBudgetWeek();
+        renderSelectedDate({ scrollToNow: true });
+        window.setInterval(() => {
+          checkForNewDay();
+          rotateScheduleToCurrentTime();
+          updateCurrentSlot();
+        }, 60000);
+      })();
+    </script>
+  </body>
+</html>
